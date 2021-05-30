@@ -71,6 +71,20 @@ menu "LWIP"
             will be redirected to lwip_select(), therefore, select can be used
             for sockets only.
 
+    config LWIP_SO_LINGER
+        bool "Enable SO_LINGER processing"
+        default n
+        help
+            Enabling this option allows SO_LINGER processing.
+            l_onoff = 1,l_linger can set the timeout.
+
+            If l_linger=0, When a connection is closed, TCP will terminate the connection.
+            This means that TCP will discard any data packets stored in the socket send buffer
+            and send an RST to the peer.
+
+            If l_linger!=0,Then closesocket() calls to block the process until
+            the remaining data packets has been sent or timed out.
+
     config LWIP_SO_REUSE
         bool "Enable SO_REUSEADDR option"
         default y
@@ -105,18 +119,45 @@ menu "LWIP"
             Enabling this option allows checking for the destination address
             of a received IPv4 Packet.
 
-    config LWIP_IP_FRAG
-        bool "Enable fragment outgoing IP packets"
-        default n
+    config LWIP_IP4_FRAG
+        bool "Enable fragment outgoing IP4 packets"
+        default y
         help
-            Enabling this option allows fragmenting outgoing IP packets if their size
+            Enabling this option allows fragmenting outgoing IP4 packets if their size
             exceeds MTU.
 
-    config LWIP_IP_REASSEMBLY
-        bool "Enable reassembly incoming fragmented IP packets"
+    config LWIP_IP6_FRAG
+        bool "Enable fragment outgoing IP6 packets"
+        default y
+        help
+            Enabling this option allows fragmenting outgoing IP6 packets if their size
+            exceeds MTU.
+
+    config LWIP_IP4_REASSEMBLY
+        bool "Enable reassembly incoming fragmented IP4 packets"
         default n
         help
-            Enabling this option allows reassemblying incoming fragmented IP packets.
+            Enabling this option allows reassemblying incoming fragmented IP4 packets.
+
+    config LWIP_IP6_REASSEMBLY
+        bool "Enable reassembly incoming fragmented IP6 packets"
+        default n
+        help
+            Enabling this option allows reassemblying incoming fragmented IP6 packets.
+
+    config LWIP_IP_FORWARD
+        bool "Enable IP forwarding"
+        default n
+        help
+            Enabling this option allows packets forwarding across multiple interfaces.
+
+    config LWIP_IPV4_NAPT
+        bool "Enable NAT (new/experimental)"
+        depends on LWIP_IP_FORWARD
+        select LWIP_L2_TO_L3_COPY
+        default n
+        help
+            Enabling this option allows Network Address and Port Translation.
 
     config LWIP_STATS
         bool "Enable LWIP statistics"
@@ -254,6 +295,14 @@ menu "LWIP"
             If rate limiting self-assignment requests, wait this long between
             each request.
 
+    config LWIP_IPV6_AUTOCONFIG
+        bool "Enable IPV6 stateless address autoconfiguration"
+        default n
+        help
+            Enabling this option allows the devices to IPV6 stateless address autoconfiguration.
+
+            See RFC 4862.
+
     menuconfig LWIP_NETIF_LOOPBACK
         bool "Support per-interface loopback"
         default y
@@ -343,8 +392,9 @@ menu "LWIP"
 
         config LWIP_TCP_SND_BUF_DEFAULT
             int "Default send buffer size"
-            default 5744  # 4 * default MSS
-            range 2440 65535
+            default 2880  # 2 * default MSS
+            range 2440 65535 if !LWIP_WND_SCALE
+            range 2440 1024000 if LWIP_WND_SCALE
             help
                 Set default send buffer size for new TCP sockets.
 
@@ -352,15 +402,16 @@ menu "LWIP"
                 with lwip_setsockopt(s, TCP_SNDBUF, ...).
 
                 This value must be at least 2x the MSS size, and the default
-                is 4x the default MSS size.
+                is 2x the default MSS size.
 
                 Setting a smaller default SNDBUF size can save some RAM, but
                 will decrease performance.
 
         config LWIP_TCP_WND_DEFAULT
             int "Default receive window size"
-            default 5744 # 4 * default MSS
-            range 2440 65535
+            default 5760 # 4 * default MSS
+            range 2440 65535 if !LWIP_WND_SCALE
+            range 2440 1024000 if LWIP_WND_SCALE
             help
                 Set default TCP receive window size for new TCP sockets.
 
@@ -378,8 +429,8 @@ menu "LWIP"
             help
                 Set TCP receive mail box size. Generally bigger value means higher throughput
                 but more memory. The recommended value is: LWIP_TCP_WND_DEFAULT/TCP_MSS + 2, e.g. if
-                LWIP_TCP_WND_DEFAULT=14360, TCP_MSS=1436, then the recommended receive mail box size is
-                (14360/1436 + 2) = 12.
+                LWIP_TCP_WND_DEFAULT=14440, TCP_MSS=1440, then the recommended receive mail box size is
+                (14440/1440 + 2) = 12.
 
                 TCP receive mail box is a per socket mail box, when the application receives packets
                 from TCP socket, LWIP core firstly posts the packets to TCP receive mail box and the
@@ -399,6 +450,12 @@ menu "LWIP"
 
                 Disable this option to save some RAM during TCP sessions, at the expense
                 of increased retransmissions if segments arrive out of order.
+
+        config LWIP_TCP_SACK_OUT
+            bool "Support sending selective acknowledgements"
+            default n
+            help
+                TCP will support sending selective acknowledgements (SACKs).
 
         config LWIP_TCP_KEEP_CONNECTION_WHEN_IP_CHANGES
             bool "Keep TCP connections when IP changed"
@@ -448,6 +505,13 @@ menu "LWIP"
             default 0
             help
                 Enable this feature to support TCP window scaling.
+
+        config LWIP_TCP_RTO_TIME
+            int "Default TCP rto time"
+            default 3000
+            help
+                Set default TCP rto time for a reasonable initial rto.
+                In bad network environment, recommend set value of rto time to 1500.
 
     endmenu # TCP
 
@@ -525,6 +589,31 @@ menu "LWIP"
             Enable PPP stack. Now only PPP over serial is possible.
 
             PPP over serial support is experimental and unsupported.
+
+    config LWIP_PPP_ENABLE_IPV6
+        bool "Enable IPV6 support for PPP connections (IPV6CP)"
+        depends on LWIP_PPP_SUPPORT && LWIP_IPV6
+        default y
+        help
+            Enable IPV6 support in PPP for the local link between the DTE (processor) and DCE (modem).
+            There are some modems which do not support the IPV6 addressing in the local link.
+            If they are requested for IPV6CP negotiation, they may time out.
+            This would in turn fail the configuration for the whole link.
+            If your modem is not responding correctly to PPP Phase Network, try to disable IPV6 support.
+
+    config LWIP_IPV6_MEMP_NUM_ND6_QUEUE
+        int "Max number of IPv6 packets to queue during MAC resolution"
+        range 3 20
+        default 3
+        help
+            Config max number of IPv6 packets to queue during MAC resolution.
+
+    config LWIP_IPV6_ND6_NUM_NEIGHBORS
+        int "Max number of entries in IPv6 neighbor cache"
+        range 3 10
+        default 5
+        help
+            Config max number of entries in IPv6 neighbor cache
 
     config LWIP_PPP_NOTIFY_PHASE_SUPPORT
         bool "Enable Notify Phase Callback"
@@ -621,4 +710,205 @@ menu "LWIP"
 
     endmenu # SNTP
 
-endmenu
+    config LWIP_ESP_LWIP_ASSERT
+        bool "Enable LWIP ASSERT checks"
+        default y
+        help
+            Enable this option allows lwip to check assert.
+            It is recommended to keep it open, do not close it.
+
+    menuconfig LWIP_DEBUG
+        bool "Enable lwip Debug"
+        default n
+
+        config LWIP_ETHARP_DEBUG
+            bool "Enable debugging in etharp.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_NETIF_DEBUG
+            bool "Enable debugging in netif.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_PBUF_DEBUG
+            bool "Enable debugging in pbuf.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_API_LIB_DEBUG
+            bool "Enable debugging in api_lib.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_API_MSG_DEBUG
+            bool "Enable debugging in api_msg.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_SOCKETS_DEBUG
+            bool "Enable debugging in sockets.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_ICMP_DEBUG
+            bool "Enable debugging in icmp.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_IGMP_DEBUG
+            bool "Enable debugging in igmp.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_INET_DEBUG
+            bool "Enable debugging in inet.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_ETHERNETIF_DEBUG
+            bool "Enable debugging in ethernetif.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_IP_DEBUG
+            bool "Enable debugging for IP"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_IP_REASS_DEBUG
+            bool "Enable debugging in ip_frag.c for both frag & reass"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_RAW_DEBUG
+            bool "Enable debugging in raw.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_MEM_DEBUG
+            bool "Enable debugging in mem.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_MEMP_DEBUG
+            bool "Enable debugging in memp.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_SYS_DEBUG
+            bool "Enable debugging in sys.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TIMERS_DEBUG
+            bool "Enable debugging in timers.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_DEBUG
+            bool "Enable debugging for TCP"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_INPUT_DEBUG
+            bool "Enable debugging in tcp_in.c for incoming debug"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_FR_DEBUG
+            bool "Enable debugging in tcp_in.c for fast retransmit"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_RTO_DEBUG
+            bool "Enable debugging in TCP for retransmit"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_CWND_DEBUG
+            bool "Enable debugging for TCP congestion window"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_WND_DEBUG
+            bool "Enable debugging in tcp_in.c for window updating"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_OUTPUT_DEBUG
+            bool "Enable debugging in tcp_out.c output functions"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_RST_DEBUG
+            bool "Enable debugging for TCP with the RST message"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_QLEN_DEBUG
+            bool "Enable debugging for TCP queue lengths"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_UDP_DEBUG
+            bool "Enable debugging in UDP"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCPIP_DEBUG
+            bool "Enable debugging in tcpip.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_SLIP_DEBUG
+            bool "Enable debugging in slipif.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_DHCP_DEBUG
+            bool "Enable debugging in dhcp.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_DHCP_SERVER_DEBUG
+            bool "Enable debugging in dhcpserver.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_AUTOIP_DEBUG
+            bool "Enable debugging in autoip.c"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_DNS_DEBUG
+            bool "Enable debugging for DNS"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_IP6_DEBUG
+            bool "Enable debugging for IPv6"
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_SNTP_DEBUG
+            bool "Enable debugging for SNTP."
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_THREAD_SAFE_DEBUG
+            bool "Enable debugging for LWIP thread safety."
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_PBUF_CACHE_DEBUG
+            bool "Enable debugging for LWIP pbuf cache."
+            depends on LWIP_DEBUG
+            default n
+
+        config LWIP_TCP_TXRX_PBUF_DEBUG
+            bool "Enable debugging for TCP TX/RX data."
+            depends on LWIP_DEBUG
+            default n
+
+    endmenu

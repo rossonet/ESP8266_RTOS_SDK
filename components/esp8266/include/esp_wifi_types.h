@@ -61,6 +61,8 @@ typedef enum {
     WIFI_AUTH_WPA2_PSK,         /**< authenticate mode : WPA2_PSK */
     WIFI_AUTH_WPA_WPA2_PSK,     /**< authenticate mode : WPA_WPA2_PSK */
     WIFI_AUTH_WPA2_ENTERPRISE,  /**< authenticate mode : WPA2_ENTERPRISE */
+    WIFI_AUTH_WPA3_PSK,         /**< authenticate mode : WPA3_PSK */
+    WIFI_AUTH_WPA2_WPA3_PSK,    /**< authenticate mode : WPA2_WPA3_PSK */
     WIFI_AUTH_MAX
 } wifi_auth_mode_t;
 
@@ -89,12 +91,16 @@ typedef enum {
     WIFI_REASON_802_1X_AUTH_FAILED       = 23,
     WIFI_REASON_CIPHER_SUITE_REJECTED    = 24,
 
+    WIFI_REASON_INVALID_PMKID            = 53,
+
     WIFI_REASON_BEACON_TIMEOUT           = 200,
     WIFI_REASON_NO_AP_FOUND              = 201,
     WIFI_REASON_AUTH_FAIL                = 202,
     WIFI_REASON_ASSOC_FAIL               = 203,
     WIFI_REASON_HANDSHAKE_TIMEOUT        = 204,
-    WIFI_REASON_BASIC_RATE_NOT_SUPPORT   = 205,
+    WIFI_REASON_CONNECTION_FAIL          = 205,
+    WIFI_REASON_AP_TSF_RESET             = 206,
+    WIFI_REASON_BASIC_RATE_NOT_SUPPORT   = 207,
 } wifi_err_reason_t;
 
 typedef enum {
@@ -156,6 +162,7 @@ typedef struct {
     uint8_t primary;                      /**< channel of AP */
     wifi_second_chan_t second;            /**< secondary channel of AP */
     int8_t  rssi;                         /**< signal strength of AP */
+    int16_t freq_offset;                  /**< frequency offset of AP */
     wifi_auth_mode_t authmode;            /**< authmode of AP */
     wifi_cipher_type_t pairwise_cipher;   /**< pairwise cipher of AP */
     wifi_cipher_type_t group_cipher;      /**< group cipher of AP */
@@ -198,6 +205,21 @@ typedef enum {
                               parameter in wifi_sta_config_t. 
                               Attention: Using this option may cause ping failures. Not recommended */
 } wifi_ps_type_t;
+
+/**
+ * @brief Wi-Fi Power management config for ESP8266
+ *
+ * Pass a pointer to this structure as an argument to esp_wifi_set_pm_config function.
+ */
+typedef struct {
+    uint8_t max_bcn_early_ms;    /**< max beacon early time(2~15ms), default 4ms. */
+    uint8_t max_bcn_timeout_ms;  /**< max beacon timeout time(12~32ms), default 24ms. */
+    uint8_t wait_time;           /**< wait time before close RF (10~100ms), default 20ms. */
+    uint8_t wait_tx_cnt;         /**< wait cnt after tx packet done(1~20), default 2, real time = wait_tx_cnt * wait_time. */
+    uint8_t wait_rx_bdata_cnt;   /**< wait cnt after rx broadcast packet(1~100), default 2, real time = wait_tx_cnt * wait_time. */
+    uint8_t wait_rx_udata_cnt;   /**< wait cnt after rx unicast packet(1~100), default 4, real time = wait_tx_cnt * wait_time. */
+    bool recv_bdata;             /**< Receive broadcast/multicast packet or not when WiFi in power save. default true(receive broadcast/multicast packet)*/
+} esp_pm_config_t;
 
 /**
  * @brief Power management config for ESP8266
@@ -252,6 +274,9 @@ typedef struct {
     wifi_sort_method_t sort_method;    /**< sort the connect AP in the list by rssi or security mode */
     wifi_fast_scan_threshold_t  threshold;     /**< When scan_method is set to WIFI_FAST_SCAN, only APs which have an auth mode that is more secure than the selected auth mode and a signal stronger than the minimum RSSI will be used. */
     wifi_pmf_config_t pmf_cfg;    /**< Configuration for Protected Management Frame. Will be advertized in RSN Capabilities in RSN IE. */
+    uint32_t rm_enabled:1;        /**< Whether radio measurements are enabled for the connection */
+    uint32_t btm_enabled:1;       /**< Whether BTM is enabled for the connection */
+    uint32_t reserved:30;         /**< Reserved for future feature set */
 } wifi_sta_config_t;
 
 /** @brief Configuration data for ESP8266 AP or STA.
@@ -461,6 +486,7 @@ typedef enum {
     WIFI_EVENT_STA_CONNECTED,            /**< station connected to AP */
     WIFI_EVENT_STA_DISCONNECTED,         /**< station disconnected from AP */
     WIFI_EVENT_STA_AUTHMODE_CHANGE,      /**< the auth mode of AP connected by station changed */
+    WIFI_EVENT_STA_BSS_RSSI_LOW,         /**< AP's RSSI crossed configured threshold */
     WIFI_EVENT_STA_WPS_ER_SUCCESS,       /**< station wps succeeds in enrollee mode */
     WIFI_EVENT_STA_WPS_ER_FAILED,        /**< station wps fails in enrollee mode */
     WIFI_EVENT_STA_WPS_ER_TIMEOUT,       /**< station wps timeout in enrollee mode */
@@ -501,6 +527,10 @@ typedef struct {
     wifi_auth_mode_t new_mode;         /**< the new auth mode of AP */
 } wifi_event_sta_authmode_change_t;
 
+#define MAX_SSID_LEN        32
+#define MAX_PASSPHRASE_LEN  64
+#define MAX_WPS_AP_CRED     3
+
 /** Argument structure for WIFI_EVENT_STA_WPS_ER_PIN event */
 typedef struct {
     uint8_t pin_code[8];         /**< PIN code of station in enrollee mode */
@@ -531,6 +561,11 @@ typedef struct {
     uint8_t bssid[6];         /**< BSSID of disconnected AP */
     uint8_t reason;           /**< reason of disconnection */
 } wifi_event_sta_disconnected_t;
+
+/** Argument structure for WIFI_EVENT_STA_BSS_RSSI_LOW event */
+typedef struct {
+    int32_t rssi;                 /**< RSSI value of bss */
+} wifi_event_bss_rssi_low_t;
 
 #ifdef __cplusplus
 }

@@ -133,11 +133,7 @@ NVIC value of 255. */
  * 1: pthread (optional)
  * 2: errno
  */
-#ifdef CONFIG_ENABLE_PTHREAD
 #define configNUM_THREAD_LOCAL_STORAGE_POINTERS 3
-#else
-#define configNUM_THREAD_LOCAL_STORAGE_POINTERS 2
-#endif
 #define configTHREAD_LOCAL_STORAGE_DELETE_CALLBACKS 1
 
 /* add this to dump task stack information */
@@ -192,6 +188,10 @@ uint32_t esp_get_time(void);
 
 #ifndef configENABLE_TASK_SNAPSHOT
 #define configENABLE_TASK_SNAPSHOT          1
+#endif
+
+#ifndef configENABLE_TASK_MODIFY_STACK_DEPTH
+#define configENABLE_TASK_MODIFY_STACK_DEPTH 1
 #endif
 
 #endif /* FREERTOS_CONFIG_H */

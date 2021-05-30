@@ -11,7 +11,7 @@
  *
  * See README and COPYING for more details.
  */
-#if 1//def EMBEDDED_SUPP
+ #ifdef ESP_SUPPLICANT
 
 #include "utils/includes.h"
 
@@ -225,6 +225,9 @@ static int  wpa_gen_wpa_ie_rsn(u8 *rsn_ie, size_t rsn_ie_len,
         }
     }
 #endif /* CONFIG_IEEE80211W */
+
+    capab |= WPA_CAPABILITY_SPP_CAPABLE;
+
     WPA_PUT_LE16(pos, capab);
     pos += 2;
 
@@ -403,5 +406,5 @@ int  wpa_supplicant_parse_ies(const u8 *buf, size_t len,
 }
 
 
-#endif // EMBEDDED_SUPP
+#endif // ESP_SUPPLICANT
 

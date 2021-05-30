@@ -1,10 +1,8 @@
 gwen:
-    core:       01c569d
-    net80211:   01c569d
-    pp:         01c569d
-    espnow:     01c569d
-    wps:        01c569d
-    wpa2:       01c569d
+    core:       231e0e2
+    net80211:   231e0e2
+    pp:         231e0e2
+    espnow:     231e0e2
 
-    smartconfig:  2.8.2
+    smartconfig:  3.0.0/5f550c40
     phy:          1163.0

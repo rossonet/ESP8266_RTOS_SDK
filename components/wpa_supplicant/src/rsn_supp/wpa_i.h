@@ -53,7 +53,7 @@ struct wpa_sm {
     int rsn_enabled; /* Whether RSN is enabled in configuration */
 
     int countermeasures; /*TKIP countermeasures state flag, 1:in countermeasures state*/
-    os_timer_t  cm_timer;
+    ETSTimer  cm_timer;
 
     u8 *assoc_wpa_ie; /* Own WPA/RSN IE from (Re)AssocReq */
     size_t assoc_wpa_ie_len;
@@ -77,10 +77,6 @@ struct wpa_sm {
     struct install_key install_gtk;
     int  key_entry_valid;   //present current avaliable entry for bssid, for pairkey:0,5,10,15,20, gtk: pairkey_no+i (i:1~4)
 
-    uint8_t *wpadata;
-    uint16_t wpadatalen;
-    uint8_t flags;
-
     void (* sendto) (void *buffer, uint16_t len);
     void (*config_assoc_ie) (u8 proto, u8 *assoc_buf, u32 assoc_wpa_ie_len);
     void (*install_ppkey) (enum wpa_alg alg, u8 *addr, int key_idx, int set_tx,
@@ -91,8 +87,10 @@ struct wpa_sm {
     void (*wpa_neg_complete)(void);
     struct wpa_gtk_data gd; //used for calllback save param
     u16 key_info;       //used for txcallback param
+    u16 txcb_flags;
     bool   ap_notify_completed_rsne;
     wifi_pmf_config_t pmf_cfg;
+    u8 eapol1_count;
 };
 
 /**
@@ -154,12 +152,14 @@ typedef void (*WPA_DEAUTH_FUNC)(u8 reason_code);
 
 typedef void (*WPA_NEG_COMPLETE)(void);
 
-void wpa_register(char * payload, WPA_SEND_FUNC snd_func, \
+bool wpa_sm_init(char * payload, WPA_SEND_FUNC snd_func, \
         WPA_SET_ASSOC_IE set_assoc_ie_func, \
         WPA_INSTALL_KEY ppinstallkey, \
         WPA_GET_KEY ppgetkey, \
         WPA_DEAUTH_FUNC wpa_deauth, \
         WPA_NEG_COMPLETE wpa_neg_complete);
+
+void wpa_sm_deinit(void);
 
 void eapol_txcb(void *eb);
 

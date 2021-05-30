@@ -992,6 +992,66 @@ esp_err_t esp_wifi_80211_tx(wifi_interface_t ifx, const void *buffer, int len, b
  */
 wifi_state_t esp_wifi_get_state(void);
 
+/**
+ * @brief      Set RSSI threshold below which APP will get an event
+ *
+ * @attention  This API needs to be called every time after WIFI_EVENT_STA_BSS_RSSI_LOW event is received.
+ *
+ * @param      rssi threshold value in dbm between -100 to 0
+ *
+ * @return
+ *    - ESP_OK: succeed
+ *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
+ *    - ESP_ERR_WIFI_ARG: invalid argument
+ */
+esp_err_t esp_wifi_set_rssi_threshold(int32_t rssi);
+
+/**
+ * @brief      Get the TSF time
+ *             In Station mode or SoftAP+Station mode if station is not connected or station doesn't receive at least
+ *             one beacon after connected, will return 0
+ *
+ * @attention  Enabling power save may cause the return value inaccurate, except WiFi modem sleep
+ *
+ * @param      interface The interface whose tsf_time is to be retrieved.
+ *
+ * @return     0 or the TSF time
+ */
+int64_t esp_wifi_get_tsf_time(wifi_interface_t interface);
+
+/**
+  * @brief     Set the inactive time of the ESP32 STA or AP
+  *
+  * @attention 1. For Station, If the station does not receive a beacon frame from the connected SoftAP during the inactive time,
+  *               disconnect from SoftAP. Default 6s.
+  * @attention 2. For SoftAP, If the softAP doesn't receive any data from the connected STA during inactive time,
+  *               the softAP will force deauth the STA. Default is 300s.
+  * @attention 3. The inactive time configuration is not stored into flash
+  *
+  * @param     ifx  interface to be configured.
+  * @param     sec  Inactive time. Unit seconds.
+  *
+  * @return
+  *    - ESP_OK: succeed
+  *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi is not started by esp_wifi_start
+  *    - ESP_ERR_WIFI_ARG: invalid argument, For Station, if sec is less than 3. For SoftAP, if sec is less than 10.
+  */
+esp_err_t esp_wifi_set_inactive_time(wifi_interface_t ifx, uint16_t sec);
+
+/**
+  * @brief     Get inactive time of specified interface
+  *
+  * @param     ifx  Interface to be configured.
+  * @param     sec  Inactive time. Unit seconds.
+  *
+  * @return
+  *    - ESP_OK: succeed
+  *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
+  *    - ESP_ERR_WIFI_ARG: invalid argument
+  */
+esp_err_t esp_wifi_get_inactive_time(wifi_interface_t ifx, uint16_t *sec);
+
 #ifdef __cplusplus
 }
 #endif

@@ -15,6 +15,11 @@
 #ifndef INET_H_
 #define INET_H_
 
-#include "../../../lwip/src/include/lwip/inet.h"
+#include "lwip/inet.h"
+#include "lwip/ip6_addr.h"
+
+#ifndef IN6_IS_ADDR_MULTICAST
+#define IN6_IS_ADDR_MULTICAST(a)    ip6_addr_ismulticast((ip6_addr_t*)(a))
+#endif
 
 #endif /* INET_H_ */

@@ -29,6 +29,7 @@
 /* Scheduler includes. */
 
 #include <stdint.h>
+#include <string.h>
 
 #include <xtensa/config/core.h>
 #include <xtensa/tie/xt_interrupt.h>
@@ -218,6 +219,15 @@ portBASE_TYPE xPortStartScheduler(void)
     return pdTRUE;
 }
 
+void vPortInitContextFromOldStack(StackType_t *newStackTop, StackType_t *oldStackTop, UBaseType_t stackSize)
+{
+    uintptr_t *sp;
+
+    memcpy(newStackTop, oldStackTop, stackSize);
+    sp = (uintptr_t *)newStackTop;
+    sp[XT_STK_A1 / sizeof(uintptr_t)] = (uintptr_t)sp + XT_STK_FRMSZ;
+}
+
 void vPortEndScheduler(void)
 {
     /* It is unlikely that the CM3 port will require this function as there
@@ -287,9 +297,10 @@ void IRAM_ATTR vPortETSIntrLock(void)
     if (NMIIrqIsOn == 0) {
         uint32_t regval = REG_READ(NMI_INT_ENABLE_REG);
 
+        vPortEnterCritical();
+
         REG_WRITE(NMI_INT_ENABLE_REG, 0);
 
-        vPortEnterCritical();
         if (!ESP_NMI_IS_CLOSED()) {
             do {
                 REG_WRITE(INT_ENA_WDEV, WDEV_TSF0_REACH_INT);
@@ -312,9 +323,10 @@ void IRAM_ATTR vPortETSIntrUnlock(void)
 
             REG_WRITE(INT_ENA_WDEV, WDEV_INTEREST_EVENT);
         }
-        vPortExitCritical();
 
         REG_WRITE(NMI_INT_ENABLE_REG, regval);
+
+        vPortExitCritical();
     }
 }
 

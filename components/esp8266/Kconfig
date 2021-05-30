@@ -1,8 +1,38 @@
 menu "ESP8266-specific"
 
+config ESP8266_NMI_WDT
+    bool "Enable non-mask watch dog"
+    default y
+    help
+        Important: this non-mask watch dog is registered to non-mask timer0,
+                   so it can not work together with PWM.
+
+        Enable this non-mask watch dog can help users to debug blocking code
+        when CPU is at critical state(disable interrupt).
+
+
+choice ESP8266_XTAL_FREQ_SEL
+    prompt "Main XTAL frequency"
+    default ESP8266_XTAL_FREQ_26
+    help
+        ESP8266 currently supports the following XTAL frequencies:
+
+        - 26 MHz
+        - 40 MHz
+    config ESP8266_XTAL_FREQ_40
+        bool "40 MHz"
+    config ESP8266_XTAL_FREQ_26
+        bool "26 MHz"
+endchoice
+
+config ESP8266_XTAL_FREQ
+    int
+    default 40 if ESP8266_XTAL_FREQ_40
+    default 26 if ESP8266_XTAL_FREQ_26
+
 choice ESP8266_DEFAULT_CPU_FREQ_MHZ
     prompt "CPU frequency"
-    default ESP8266_DEFAULT_CPU_FREQ_80
+    default ESP8266_DEFAULT_CPU_FREQ_160
     help
         CPU frequency to be set on application startup.
 
@@ -16,30 +46,6 @@ config ESP8266_DEFAULT_CPU_FREQ_MHZ
     int
     default 80 if ESP8266_DEFAULT_CPU_FREQ_80
     default 160 if ESP8266_DEFAULT_CPU_FREQ_160
-
-choice NEWLIB_STDOUT_LINE_ENDING
-    prompt "Line ending for UART output"
-    default NEWLIB_STDOUT_LINE_ENDING_CRLF
-    help
-        This option allows configuring the desired line endings sent to UART
-        when a newline ('\n', LF) appears on stdout.
-        Three options are possible:
-
-        CRLF: whenever LF is encountered, prepend it with CR
-
-        LF: no modification is applied, stdout is sent as is
-
-        CR: each occurence of LF is replaced with CR
-
-        This option doesn't affect behavior of the UART driver (drivers/uart.h).
-
-config NEWLIB_STDOUT_LINE_ENDING_CRLF
-    bool "CRLF"
-config NEWLIB_STDOUT_LINE_ENDING_LF
-    bool "LF"
-config NEWLIB_STDOUT_LINE_ENDING_CR
-    bool "CR"
-endchoice
 
 choice ESP_FILENAME_MACRO
     prompt "File name macro text"
@@ -81,6 +87,21 @@ config LINK_ETS_PRINTF_TO_IRAM
         Using new "ets_vprintf" should cost more 1.6KB IRAM.
 
         Note: Bootloader can't use this function.
+
+config ETS_PRINTF_EXIT_WHEN_FLASH_RW
+    bool "ets_printf exits when flash R/W"
+    default y
+    depends on !LINK_ETS_PRINTF_TO_IRAM
+    help
+        By default option, we link the ets_printf function and its calling functions
+        in SPI Flash. So when the SPI Flash is working in read/write mode, and we
+        call ets_printf in high level interrupt like NMI, this behavior will cause a
+        crash, and the EXCCAUSE=0.
+
+        Enable this option, we link the ets_printf in IRAM, and its calling functions
+        in SPI Flash. In the entry of ets_printf, we check if the SPI Flash is working
+        in read/write mode, and exit if it is. So that ets_printf will not call functions
+        in SPI Flash.
 
 config SOC_FULL_ICACHE
     bool "Enable full cache mode"
@@ -298,7 +319,7 @@ config ESP8266_WIFI_RX_BUFFER_NUM
 config ESP8266_WIFI_LEFT_CONTINUOUS_RX_BUFFER_NUM
     int "The min number of WiFi continuous RX buffer"
     range 0 16
-    default 8
+    default 16
     help
         Set the number of WiFi continuous RX buffer num.
         The smaller the value, the easier RX hang will appear. Most of time we should NOT change the default

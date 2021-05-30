@@ -17,7 +17,7 @@
 
 #include "esp_log.h"
 #include "esp_system.h"
-#include "internal/esp_system_internal.h"
+#include "esp_private/esp_system_internal.h"
 
 #include "rom/crc.h"
 
@@ -308,6 +308,34 @@ esp_err_t esp_read_mac(uint8_t* mac, esp_mac_type_t type)
     default:
         ESP_LOGW(TAG, "incorrect mac type");
         break;
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t esp_mac_init(void)
+{
+    esp_err_t ret;
+    uint8_t efuse_mac[6];
+
+    if ((ret = nvs_flash_init()) != ESP_OK) {
+        ESP_LOGE(TAG, "Init NVS error=%d", ret);
+        return ESP_ERR_INVALID_MAC;
+    }
+
+    if (load_backup_mac_data(efuse_mac) == ESP_OK) {
+        ESP_LOGD(TAG, "Load MAC from NVS error=%d", ret);
+        return ESP_OK;
+    }
+
+    if ((ret = esp_efuse_mac_get_default(efuse_mac)) != ESP_OK) {
+        ESP_LOGE(TAG, "Get mac address error=%d", ret);
+        return ESP_ERR_INVALID_MAC;
+    }
+
+    if ((ret = store_backup_mac_data()) != ESP_OK) {
+        ESP_LOGE(TAG, "Store mac address error=%d", ret);
+        return ESP_ERR_INVALID_MAC;
     }
 
     return ESP_OK;
